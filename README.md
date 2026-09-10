@@ -61,6 +61,8 @@ was scoped to two ~3-4B models for that reason.
 .venv/bin/python hello_model.py              # one prompt, with timings
 .venv/bin/python benchmark.py                # full Phase 1 benchmark (~10 min)
 .venv/bin/python summarize.py                # tables from the latest benchmark run
+.venv/bin/python triage.py "I was charged twice this month."   # ticket -> validated JSON
+.venv/bin/python -m unittest discover -s tests -v              # retry-logic tests, no model needed
 ```
 
 ## How it's put together
@@ -74,6 +76,11 @@ summarize.py                   turns raw rows into median / worst-case tables
 prompts/benchmark_prompts.json 5 support-ticket prompts - plain data, no logic
 results/benchmark.jsonl        every run ever recorded, one JSON line each
 results/benchmark_summary.md   latest summary tables
+
+schemas.py                     Phase 2: what a valid triage answer looks like (Pydantic)
+prompts.py                     Phase 2: versioned triage instructions - what each field means
+triage.py                      Phase 2: ask -> validate -> retry once -> fail cleanly
+tests/test_triage.py           7 tests of the retry logic, using a fake model
 ```
 
 Two decisions worth calling out:
@@ -209,12 +216,98 @@ answers are also *good* answers is a question for Phase 3.
 - **Five prompts.** Enough to see the patterns in speed, not to judge
   quality. Quality is Phase 3's job, with 30-50 prompts.
 
-## Phase 2: Structured output (next)
+## Phase 2: Structured output (in progress)
 
-Force answers into a JSON shape (category, priority, sentiment, summary,
-action items), validate them with Pydantic, retry once with the error message
-if they're invalid, and measure how temperature 0 vs 0.7 changes answer
-consistency.
+A free-text answer is fine for a person to read, but a support system needs
+to route tickets automatically, so the answer has to be data with a fixed
+shape:
+
+```json
+{
+  "category": "billing | technical | account | shipping | other",
+  "priority": "low | medium | high | urgent",
+  "sentiment": "negative | neutral | positive",
+  "summary": "one or two sentences",
+  "action_items": ["1 to 8 concrete steps"]
+}
+```
+
+### The pattern: constrain, validate, retry
+
+1. **Constrain.** The schema is handed to Ollama, which only lets the model
+   produce text that fits that shape.
+2. **Validate.** Pydantic (`schemas.py`) checks every answer anyway: allowed
+   values only, summary length, 1-8 action items, no extra fields. Nothing
+   the model says is trusted until it passes.
+3. **Retry once.** If an answer is rejected, the model is shown its reply and
+   the exact reasons, and asked again. If the reply wasn't readable JSON at
+   all, a plain-English hint is added, because Pydantic's message for that
+   case ("expected value at line 1 column 1") is written for programmers,
+   not models.
+4. **Fail cleanly.** After two failures, `triage()` returns a failure with
+   every reply and error kept, meaning "this ticket needs a human", instead
+   of crashing.
+
+The schema controls the *shape*; the instructions in `prompts.py` control
+the *meaning*. The model never sees the schema itself, so the instructions
+are where it learns what "urgent" or "account" means. They're versioned, so
+every result can be traced back to the exact wording that produced it.
+
+The retry logic is covered by 7 unit tests (`tests/test_triage.py`) that
+swap the model for a fake with scripted replies: valid first time, wrong then
+right, wrong twice. A real model can't be made to fail on demand, and with
+the schema on, it never did.
+
+### Findings so far
+
+**1. You can't check "correct" until you've defined it.** With the first
+version of the instructions, the two models disagreed on 2 of 3 tickets:
+
+| Ticket | llama3.2:3b | phi4-mini |
+|---|---|---|
+| Can't log in since an app update | account | technical |
+| Five problems in one ticket | account | billing |
+
+Neither was wrong. The definitions were ambiguous: logging in was listed
+under *account*, bugs under *technical*, and a five-issue ticket fits no
+single category. Version 2 added two tie-break rules: a login broken by a
+bug is **technical**, and a multi-issue ticket takes the category of its
+**most serious** issue (money first, then broken things). Both models then
+agreed on all three. Those rules also become the answer key for Phase 3's
+scoring.
+
+**2. Instructions ask; constraints enforce.**
+
+| | Schema on | Schema off |
+|---|---|---|
+| llama3.2:3b | 6/6 valid | 3/3 valid, first try |
+| phi4-mini | 6/6 valid | **0 of 18 replies valid** |
+
+Without the schema, `phi4-mini` wraps its JSON in markdown marks
+(` ```json ... ``` `), which isn't valid JSON. Everything tried to prompt
+this away failed, every time:
+
+- a retry with Pydantic's error message
+- a retry with a plain-English hint ("no ``` marks")
+- a retry that hid its bad reply, in case it was copying itself
+- the "no ``` marks" rule in the instructions from the very first request
+
+It's a habit from the model's training, and at temperature 0 it's
+completely consistent. The takeaway: the retry is a **safety net for
+occasional slips** (a wrong category, a missing field), not a fix for a
+habit a model has every single time. Where a hard guarantee is available,
+use it. Here that means constrained generation stays on by default.
+
+**3. The Phase 1 cache finding pays off.** Every request starts with the
+same ~250 tokens of instructions, followed by the ticket. After the first
+ticket, the instructions are already cached. The next ticket's reading time
+dropped from 1.38 s to 0.33 s, because only the new ticket had to be read.
+
+### Next: temperature 0 vs 0.7
+
+The same tickets, sent repeatedly at both temperatures, measuring how often
+the labels change, how many different answers come back, and how similar
+the summaries are.
 
 ## Phase 3: Model comparison (planned)
 
