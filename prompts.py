@@ -7,16 +7,21 @@ this is where it learns what "urgent" or "account" actually means.
 Bump the version whenever the wording changes, so results can be traced back
 to the exact instructions that produced them.
 """
-TRIAGE_PROMPT_VERSION = "v1"
+TRIAGE_PROMPT_VERSION = "v2"  # v2: tie-break rules for login bugs and multi-issue tickets
 
 TRIAGE_INSTRUCTIONS = """You are a customer support triage assistant. Read the ticket and reply with JSON containing these fields:
 
 category - pick exactly one:
   billing:   charges, invoices, payments, pricing, refunds
-  technical: bugs, errors, crashes, features not working
-  account:   logging in, access, users, invitations, settings
+  technical: bugs, errors, crashes - anything that used to work and is now broken,
+             including a login that fails because of a bug or an update
+  account:   requests about access, users, invitations, passwords and settings,
+             when nothing is broken
   shipping:  deliveries, tracking, orders in transit
   other:     anything else (sales questions, compliance, feedback)
+
+  If the ticket raises several issues, use the category of the most serious one:
+  money charged wrongly first, then something broken, then everything else.
 
 priority - pick exactly one:
   urgent: the customer is blocked AND there is a deadline or business impact right now
