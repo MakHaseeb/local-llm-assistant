@@ -1,0 +1,27 @@
+[
+  {
+    "id": "short_classify",
+    "note": "Tiny input, tiny output - isolates fixed overhead",
+    "prompt": "Classify this support message with one word (billing, technical, account, or shipping): \"I was charged twice for my subscription this month.\""
+  },
+  {
+    "id": "medium_summary",
+    "note": "Typical ticket, short summary",
+    "prompt": "Summarize this support ticket in two sentences.\n\nTicket: Hi, since yesterday's app update I can't log in on my phone. I enter my password, the screen goes white for a few seconds, and then it sends me back to the login page. I've tried reinstalling the app and resetting my password, but nothing works. It still works fine on my laptop. I need access today because I have to approve invoices for my team."
+  },
+  {
+    "id": "medium_reply",
+    "note": "Typical ticket, draft a longer reply",
+    "prompt": "Write a polite, professional reply to this customer (under 120 words).\n\nCustomer: This is the third time I'm writing. My order #48213 was supposed to arrive last Monday and the tracking hasn't changed in 6 days. Nobody has answered my emails. If I don't hear back by Friday I'm cancelling and leaving a review."
+  },
+  {
+    "id": "long_action_items",
+    "note": "Long input - shows how input length affects time to first token",
+    "prompt": "Read this support ticket and list every action item the support team needs to take, as a numbered list.\n\nTicket: Hello, I'm the office manager at a 40-person accounting firm and we've been using your platform for about two years. I'm writing because several things have gone wrong at once and I'd like them handled together rather than across five separate tickets. First, our annual renewal went through last week, but we were charged at the old 60-seat price even though we reduced to 40 seats in March - I have the confirmation email from your sales rep, Priya, if you need it. Second, two of our new hires, Daniel and Mei, never received their invitation emails; I've checked their spam folders and resent the invites twice. Third, the export-to-Excel feature has been timing out for any report longer than about three months, which is a real problem because we are in the middle of quarter-end close. Fourth, our IT contractor asked me to confirm whether your platform supports single sign-on with Microsoft, because we'd like to set that up next month. Finally, I'd like a copy of your latest security certification for our compliance files. Please let me know who my point of contact will be for all of this. Thank you."
+  },
+  {
+    "id": "open_ended",
+    "note": "Open question - output will hit the token limit, a good pure speed test",
+    "prompt": "Explain to a new customer support agent how to decide which tickets to handle first. Give practical guidance."
+  }
+]
