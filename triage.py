@@ -18,7 +18,7 @@ from typing import List, Optional
 
 from pydantic import ValidationError
 
-from llm_client import generate
+from llm_client import GenerationResult, generate
 from prompts import build_triage_prompt
 from schemas import TicketTriage
 
@@ -38,6 +38,7 @@ class TriageOutcome:
     replies: List[str] = field(default_factory=list)  # every raw reply, in order
     errors: List[str] = field(default_factory=list)   # why each failed reply was rejected
     total_s: float = 0.0                              # time across all attempts
+    results: List[GenerationResult] = field(default_factory=list)  # full timings per attempt
 
 
 def describe_errors(e: ValidationError) -> str:
@@ -72,6 +73,7 @@ def triage(ticket: str, model: str = "llama3.2:3b", constrained: bool = True,
         outcome.attempts = attempt
         outcome.total_s += result.total_s
         outcome.replies.append(result.text)
+        outcome.results.append(result)
         try:
             outcome.triage = TicketTriage.model_validate_json(result.text)
             outcome.ok = True

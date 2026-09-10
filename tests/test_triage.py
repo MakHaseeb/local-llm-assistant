@@ -45,6 +45,7 @@ class TriageRetryTests(unittest.TestCase):
             out = triage.triage("ticket text")
         self.assertTrue(out.ok)
         self.assertEqual(out.attempts, 2)
+        self.assertEqual(len(out.results), 2)      # timings kept for every attempt
         retry_prompt = fake.call_args_list[1].args[1]
         self.assertIn(BAD_CATEGORY, retry_prompt)  # the model is shown its own reply...
         self.assertIn("category", retry_prompt)    # ...and which field was wrong
