@@ -1,0 +1,72 @@
+[
+  {
+    "run_id": "20260910-180215",
+    "ticket_id": "t01",
+    "summary": "phi4-mini",
+    "action_items": "phi4-mini",
+    "reason": "Checks the billing before refunding instead of refunding without checking, even though the other answer also covered resending the invites."
+  },
+  {
+    "run_id": "20260910-180215",
+    "ticket_id": "t05",
+    "summary": "phi4-mini",
+    "action_items": "phi4-mini",
+    "reason": "Clearer summary; the action items investigate the payment issue and make sure the team has access."
+  },
+  {
+    "run_id": "20260910-180215",
+    "ticket_id": "t09",
+    "summary": "llama3.2:3b",
+    "action_items": "llama3.2:3b",
+    "reason": "Preferred overall (no specific reason given)."
+  },
+  {
+    "run_id": "20260910-180215",
+    "ticket_id": "t12",
+    "summary": "llama3.2:3b",
+    "action_items": "llama3.2:3b",
+    "reason": "More understandable."
+  },
+  {
+    "run_id": "20260910-180215",
+    "ticket_id": "t17",
+    "summary": "llama3.2:3b",
+    "action_items": "llama3.2:3b",
+    "reason": "More understandable."
+  },
+  {
+    "run_id": "20260910-180215",
+    "ticket_id": "t21",
+    "summary": "llama3.2:3b",
+    "action_items": "llama3.2:3b",
+    "reason": "No specific reason given."
+  },
+  {
+    "run_id": "20260910-180215",
+    "ticket_id": "t26",
+    "summary": "llama3.2:3b",
+    "action_items": "llama3.2:3b",
+    "reason": "More understandable."
+  },
+  {
+    "run_id": "20260910-180215",
+    "ticket_id": "t28",
+    "summary": "llama3.2:3b",
+    "action_items": "llama3.2:3b",
+    "reason": "More understandable."
+  },
+  {
+    "run_id": "20260910-180215",
+    "ticket_id": "t35",
+    "summary": "llama3.2:3b",
+    "action_items": "llama3.2:3b",
+    "reason": "No specific reason given."
+  },
+  {
+    "run_id": "20260910-180215",
+    "ticket_id": "t39",
+    "summary": "llama3.2:3b",
+    "action_items": "llama3.2:3b",
+    "reason": "More understandable."
+  }
+]

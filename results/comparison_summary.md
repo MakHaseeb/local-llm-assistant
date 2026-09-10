@@ -34,9 +34,28 @@
 | llama3.2:3b | 3.83 | 5.41 | 0.25 | 20.4 | 12.8 | 2.63 | 2.55 |
 | phi4-mini | 5.51 | 8.27 | 0.32 | 15.8 | 9.0 | 5.46 | 3.09 |
 
-## Hand scores (blind)
+## Blind head-to-head judging
 
-_Not scored yet._
+10 tickets judged blind (answers shown as A/B in random order).
+
+| | Better summary | Better action items |
+|---|---|---|
+| llama3.2:3b | 8/10 | 8/10 |
+| phi4-mini | 2/10 | 2/10 |
+| tie | 0/10 | 0/10 |
+
+| Ticket | Better summary | Better action items | Judge's reason |
+|---|---|---|---|
+| t01 | phi4-mini | phi4-mini | Checks the billing before refunding instead of refunding without checking, even though the other answer also covered resending the invites. |
+| t05 | phi4-mini | phi4-mini | Clearer summary; the action items investigate the payment issue and make sure the team has access. |
+| t09 | llama3.2:3b | llama3.2:3b | Preferred overall (no specific reason given). |
+| t12 | llama3.2:3b | llama3.2:3b | More understandable. |
+| t17 | llama3.2:3b | llama3.2:3b | More understandable. |
+| t21 | llama3.2:3b | llama3.2:3b | No specific reason given. |
+| t26 | llama3.2:3b | llama3.2:3b | More understandable. |
+| t28 | llama3.2:3b | llama3.2:3b | More understandable. |
+| t35 | llama3.2:3b | llama3.2:3b | No specific reason given. |
+| t39 | llama3.2:3b | llama3.2:3b | More understandable. |
 
 ## Every mistake
 

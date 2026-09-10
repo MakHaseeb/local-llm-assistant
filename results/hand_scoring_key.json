@@ -1,0 +1,45 @@
+{
+  "run_id": "20260910-180215",
+  "order": {
+    "t01": {
+      "A": "phi4-mini",
+      "B": "llama3.2:3b"
+    },
+    "t05": {
+      "A": "llama3.2:3b",
+      "B": "phi4-mini"
+    },
+    "t09": {
+      "A": "phi4-mini",
+      "B": "llama3.2:3b"
+    },
+    "t12": {
+      "A": "phi4-mini",
+      "B": "llama3.2:3b"
+    },
+    "t17": {
+      "A": "phi4-mini",
+      "B": "llama3.2:3b"
+    },
+    "t21": {
+      "A": "llama3.2:3b",
+      "B": "phi4-mini"
+    },
+    "t26": {
+      "A": "phi4-mini",
+      "B": "llama3.2:3b"
+    },
+    "t28": {
+      "A": "phi4-mini",
+      "B": "llama3.2:3b"
+    },
+    "t35": {
+      "A": "llama3.2:3b",
+      "B": "phi4-mini"
+    },
+    "t39": {
+      "A": "phi4-mini",
+      "B": "llama3.2:3b"
+    }
+  }
+}
