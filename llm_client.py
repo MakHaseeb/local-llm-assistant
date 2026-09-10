@@ -28,8 +28,12 @@ class GenerationResult:
 
 def generate(model: str, prompt: str, temperature: float = 0.0,
              seed: Optional[int] = None, max_tokens: Optional[int] = None,
-             show: bool = False) -> GenerationResult:
-    """Send one prompt, stream the reply, and return the text plus timings."""
+             schema: Optional[dict] = None, show: bool = False) -> GenerationResult:
+    """Send one prompt, stream the reply, and return the text plus timings.
+
+    If a JSON schema is given, Ollama only lets the model produce text that
+    fits that shape ("constrained generation").
+    """
     options = {"temperature": temperature}
     if seed is not None:
         options["seed"] = seed
@@ -41,7 +45,7 @@ def generate(model: str, prompt: str, temperature: float = 0.0,
     pieces = []
 
     stream = ollama.chat(model=model, messages=[{"role": "user", "content": prompt}],
-                         options=options, stream=True)
+                         options=options, format=schema, stream=True)
     for chunk in stream:
         if first_token_at is None and chunk.message.content:
             first_token_at = time.perf_counter()
