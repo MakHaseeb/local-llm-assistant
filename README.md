@@ -65,6 +65,9 @@ was scoped to two ~3-4B models for that reason.
 .venv/bin/python -m unittest discover -s tests -v              # retry-logic tests, no model needed
 .venv/bin/python temperature_test.py         # temperature 0 vs 0.7 (~20 min)
 .venv/bin/python summarize_temperature.py    # tables from the latest temperature run
+.venv/bin/python compare_models.py           # Phase 3: both models x 40 tickets (~15 min)
+.venv/bin/python hand_scoring.py show 1      # blind hand scoring, batch 1 of 3
+.venv/bin/python score_models.py             # Phase 3 report tables
 ```
 
 ## How it's put together
@@ -86,6 +89,9 @@ tests/test_triage.py           7 tests of the retry logic, using a fake model
 data/eval_tickets.json         40 tickets with reviewed answer-key labels (Phases 2-3)
 temperature_test.py            Phase 2: same tickets, 5 repeats at temperature 0 and 0.7
 summarize_temperature.py       consistency + answer-key tables from the temperature runs
+compare_models.py              Phase 3: every model triages all 40 tickets once
+score_models.py                accuracy, priority mix-ups, speed/memory, hand scores
+hand_scoring.py                blind A/B scoring of summaries and action items
 ```
 
 Two decisions worth calling out:
@@ -393,10 +399,36 @@ breaking rules they were never told:
 The review changed 4 labels (all medium → high under the deadline and
 security rules) and confirmed the rest.
 
-## Phase 3: Model comparison (planned)
+## Phase 3: Model comparison (in progress)
 
-Both models run on the same 40 tickets (`data/eval_tickets.json`, answer key
-already reviewed), compared on speed, memory, and output quality. Quality is
-scored automatically where there's a correct answer (category, priority,
-sentiment, valid JSON) and by hand with a rubric where there isn't (summary
-and action-item quality).
+Every AI team has to choose a model, often with less evidence than it
+should. Here both models get the same 40 tickets under the same conditions,
+and are compared on the three things that matter when running locally:
+quality, speed, and memory.
+
+### Method
+
+- **Same conditions for both.** Prompt v3, temperature 0, schema on, same
+  laptop. Phase 2 showed temperature 0 is repeatable, so each ticket runs
+  once. Each model starts cold, and that first ticket is left out of the
+  speed numbers.
+- **Automatic scoring where there's a right answer.** Category, priority and
+  sentiment are checked against the reviewed answer key, along with how many
+  answers were valid or needed a retry. A priority mix-up table shows *how*
+  each model is wrong, not just how often.
+- **Blind hand scoring where there isn't.** Summary and action-item quality
+  are scored 1-3 on 10 tickets, using a fixed rubric. Each ticket's two
+  answers are shown as "A" and "B" in random order, so the scorer can't
+  favour a model by name. Writing style can still give a model away: this
+  hides the name, not the voice.
+
+| Score | Summary | Action items |
+|---|---|---|
+| 3 | Accurate and complete: the main issue and the key details, nothing made up | The right steps, specific, nothing the customer already tried, nothing made up |
+| 2 | Misses a key detail, or adds something not in the ticket | Misses an important step, or includes a vague or unnecessary one |
+| 1 | Wrong, misleading, or misses the main issue | Misses the main action, or suggests something wrong or unhelpful |
+
+### Results
+
+<!-- Filled in after the run and the hand scoring -->
+_Pending._
