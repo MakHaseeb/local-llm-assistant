@@ -63,6 +63,8 @@ was scoped to two ~3-4B models for that reason.
 .venv/bin/python summarize.py                # tables from the latest benchmark run
 .venv/bin/python triage.py "I was charged twice this month."   # ticket -> validated JSON
 .venv/bin/python -m unittest discover -s tests -v              # retry-logic tests, no model needed
+.venv/bin/python temperature_test.py         # temperature 0 vs 0.7 (~20 min)
+.venv/bin/python summarize_temperature.py    # tables from the latest temperature run
 ```
 
 ## How it's put together
@@ -81,6 +83,9 @@ schemas.py                     Phase 2: what a valid triage answer looks like (P
 prompts.py                     Phase 2: versioned triage instructions - what each field means
 triage.py                      Phase 2: ask -> validate -> retry once -> fail cleanly
 tests/test_triage.py           7 tests of the retry logic, using a fake model
+data/eval_tickets.json         40 tickets with reviewed answer-key labels (Phases 2-3)
+temperature_test.py            Phase 2: same tickets, 5 repeats at temperature 0 and 0.7
+summarize_temperature.py       consistency + answer-key tables from the temperature runs
 ```
 
 Two decisions worth calling out:
@@ -216,7 +221,7 @@ answers are also *good* answers is a question for Phase 3.
 - **Five prompts.** Enough to see the patterns in speed, not to judge
   quality. Quality is Phase 3's job, with 30-50 prompts.
 
-## Phase 2: Structured output (in progress)
+## Phase 2: Structured output (done)
 
 A free-text answer is fine for a person to read, but a support system needs
 to route tickets automatically, so the answer has to be data with a fixed
@@ -303,15 +308,95 @@ same ~250 tokens of instructions, followed by the ticket. After the first
 ticket, the instructions are already cached. The next ticket's reading time
 dropped from 1.38 s to 0.33 s, because only the new ticket had to be read.
 
-### Next: temperature 0 vs 0.7
+### Temperature: 0 vs 0.7
 
-The same tickets, sent repeatedly at both temperatures, measuring how often
-the labels change, how many different answers come back, and how similar
-the summaries are.
+Temperature controls randomness. At 0 the model always picks its most likely
+next word; at 0.7 it sometimes picks a less likely one. To measure the
+effect, 8 tickets (a mix of clear-cut and deliberately ambiguous) were each
+triaged 5 times at each temperature, by both models: 160 runs, schema on,
+prompt v2. There was **no fixed seed**, since a seed would make even 0.7
+repeat itself exactly.
+
+| Model | Temp | Valid | Category unchanged | Priority unchanged | Sentiment unchanged | Different answers per 5 repeats | Words shared between summaries |
+|---|---|---|---|---|---|---|---|
+| llama3.2:3b | 0.0 | 40/40 | 100% | 100% | 100% | 1.0 | 100% |
+| llama3.2:3b | 0.7 | 40/40 | 95% | 90% | 100% | 5.0 | 43% |
+| phi4-mini | 0.0 | 40/40 | 100% | 100% | 100% | 1.0 | 100% |
+| phi4-mini | 0.7 | 40/40 | 92% | 92% | 92% | 5.0 | 46% |
+
+*"Unchanged" = how often a label matched that ticket's most common answer.
+Full per-ticket results: `results/temperature_summary.md`.*
+
+**1. Temperature 0 was perfectly repeatable, without a seed.** All 80 runs at
+temperature 0 matched word for word within each ticket. My previous
+project, pitch-evaluator, notes that temperature 0 *isn't* deterministic on a
+cloud API. One common explanation is that cloud providers process many
+users' requests together in batches, which slightly changes the arithmetic
+from one request to the next. A laptop handling one request at a time
+doesn't have that source of variation. Caveat: 5 repeats, one machine.
+
+**2. At 0.7 the wording changes every time; the labels mostly don't.** Every
+repeat was a different answer, and summaries of the same ticket shared less
+than half their words. But labels held 90-95% of the time.
+
+**3. Randomness hits the unclear tickets.** The clear-cut ticket (an API
+down, losing sales every minute) never changed a label in 10 runs at 0.7.
+The changes came on exactly the tickets where the rules had gaps:
+
+- a security scare: Llama said *account* 3 times and *technical* 2 times
+- an angry ticket with nothing broken: Phi gave 3 different categories in 5 runs
+- tickets with deadlines: priority flipped
+
+Temperature 0 hides that uncertainty rather than removing it, so running
+at 0.7 is a cheap way to find where the instructions are unclear.
+
+**4. 0.7 didn't make answers more correct** (next table). For triage,
+where the same ticket should always get the same label, temperature 0 is the
+right setting. Higher temperatures suit tasks where variety is the point,
+like drafting several possible replies.
+
+| Model | Temp | Category correct | Priority correct | Sentiment correct |
+|---|---|---|---|---|
+| llama3.2:3b | 0.0 | 100% | 62% | 62% |
+| llama3.2:3b | 0.7 | 95% | 57% | 62% |
+| phi4-mini | 0.0 | 88% | 25% | 62% |
+| phi4-mini | 0.7 | 92% | 22% | 70% |
+
+*Against the answer key as drafted before review, with prompt v2. Phase 3
+re-measures on all 40 tickets with the reviewed key and prompt v3.*
+
+**5. A preview of Phase 3: priority is the weak spot.** Phi called 6 of the
+8 tickets urgent, where the answer key has 2, including an angry ticket
+where nothing is broken (5 times out of 5). Llama rated a suspected account
+break-in only *medium*. Both models called politely reported problems
+"negative".
+
+### Answer-key review → prompt v3
+
+The 40-ticket answer key in `data/eval_tickets.json` was drafted, then
+reviewed rule by rule rather than ticket by ticket, because one rule settles
+many tickets. Each decision went into **both** the answer key and the
+instructions (prompt v3). Otherwise the models would be marked wrong for
+breaking rules they were never told:
+
+- **Deadlines.** A real deadline in the next few days raises a ticket to
+  *high* even when the customer isn't blocked. *Urgent* still needs both.
+- **Security.** Signs of a break-in are *urgent*; removing a former
+  employee's access is *high*.
+- **Minor bugs.** A cosmetic bug that doesn't stop anyone working is *low*.
+- **Requests vs questions.** A request that needs the team to act is
+  *medium*; an information question or feedback is *low*.
+- **Anger.** Angry wording alone doesn't raise priority.
+- **Sentiment is tone, not situation.** A polite report of a problem is
+  *neutral*.
+
+The review changed 4 labels (all medium → high under the deadline and
+security rules) and confirmed the rest.
 
 ## Phase 3: Model comparison (planned)
 
-Both models run on the same 30-50 standard ticket prompts, compared on speed,
-memory, and output quality. Quality is scored automatically where there's a
-correct answer (category, priority, valid JSON) and by hand with a rubric
-where there isn't (summary quality).
+Both models run on the same 40 tickets (`data/eval_tickets.json`, answer key
+already reviewed), compared on speed, memory, and output quality. Quality is
+scored automatically where there's a correct answer (category, priority,
+sentiment, valid JSON) and by hand with a rubric where there isn't (summary
+and action-item quality).

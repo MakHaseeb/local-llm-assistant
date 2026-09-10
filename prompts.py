@@ -7,7 +7,10 @@ this is where it learns what "urgent" or "account" actually means.
 Bump the version whenever the wording changes, so results can be traced back
 to the exact instructions that produced them.
 """
-TRIAGE_PROMPT_VERSION = "v2"  # v2: tie-break rules for login bugs and multi-issue tickets
+# v1: first version
+# v2: tie-break rules for login bugs and multi-issue tickets
+# v3: deadline, security, minor-bug, anger and sentiment rules (from the answer-key review)
+TRIAGE_PROMPT_VERSION = "v3"
 
 TRIAGE_INSTRUCTIONS = """You are a customer support triage assistant. Read the ticket and reply with JSON containing these fields:
 
@@ -24,12 +27,22 @@ category - pick exactly one:
   money charged wrongly first, then something broken, then everything else.
 
 priority - pick exactly one:
-  urgent: the customer is blocked AND there is a deadline or business impact right now
-  high:   something is broken or money is wrong, but no immediate deadline
-  medium: a problem with a workaround, or a question that needs action
-  low:    a general question, feedback, or request with nothing broken
+  urgent: the customer is blocked AND there is a deadline or business impact right now,
+          OR there are signs of a security break-in (e.g. a login nobody recognises)
+  high:   something is broken or money is wrong,
+          OR there is a real deadline in the next few days even though the customer isn't blocked,
+          OR someone's access must be removed for security (e.g. a former employee)
+  medium: a problem with a workaround and no deadline,
+          OR a request that needs the support team to do something (add users, send an invoice)
+  low:    an information question, feedback or praise,
+          OR a cosmetic or minor bug that doesn't stop anyone working
 
-sentiment - the customer's tone: negative, neutral, or positive
+  Angry or rude wording alone does not raise the priority.
+
+sentiment - the customer's tone, not the situation:
+  negative: frustrated, upset, worried or angry
+  neutral:  factual or polite, even when reporting a problem
+  positive: friendly, thankful or pleased
 
 summary - one or two sentences, in your own words
 
