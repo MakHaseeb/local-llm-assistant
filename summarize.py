@@ -30,48 +30,63 @@ def group_by(rows, *keys):
 
 
 def med_worst(values, lower_is_better=True):
+    if not values:
+        return "–"  # e.g. older runs that had no cached rows
     worst = max(values) if lower_is_better else min(values)
     return f"{median(values):.2f} / {worst:.2f}"
 
 
+def med(values, fmt="{:.2f}"):
+    return fmt.format(median(values)) if values else "–"
+
+
+def of_type(rows, run_type):
+    return [r for r in rows if r["run_type"] == run_type]
+
+
 def model_table(rows):
     lines = [
-        "| Model | Cold load (s) | Cold TTFT (s) | Warm TTFT (s) | Tokens/sec | Memory (GB) |",
-        "|---|---|---|---|---|---|",
+        "| Model | Cold load (s) | Cold TTFT (s) | Warm TTFT (s) | Cached TTFT (s) | Tokens/sec | Memory (GB) |",
+        "|---|---|---|---|---|---|---|",
     ]
     for (model,), rs in sorted(group_by(rows, "model").items()):
-        cold = [r for r in rs if r["run_type"] == "cold"]
-        warm = [r for r in rs if r["run_type"] == "warm"]
+        cold, warm, cached = of_type(rs, "cold"), of_type(rs, "warm"), of_type(rs, "cached")
         lines.append(
             f"| {model} "
-            f"| {median(r['load_s'] for r in cold):.2f} "
+            f"| {med([r['load_s'] for r in cold])} "
             f"| {med_worst([r['ttft_s'] for r in cold])} "
             f"| {med_worst([r['ttft_s'] for r in warm])} "
+            f"| {med_worst([r['ttft_s'] for r in cached])} "
             f"| {med_worst([r['tokens_per_s'] for r in warm], lower_is_better=False)} "
             f"| {max(r['memory_gb'] for r in rs):.2f} |"
         )
-    lines.append("\nTimes and tokens/sec are shown as *median / worst*. "
-                 "Cold = model unloaded before the run; warm = model already in memory.")
+    lines.append(
+        "\nTimes and tokens/sec are shown as *median / worst*. "
+        "Cold = model unloaded before the run. Warm = model in memory, new input each time "
+        "(what a real new ticket costs). Cached = the exact same input repeated, so Ollama "
+        "skips re-reading it."
+    )
     return "\n".join(lines)
 
 
 def prompt_table(rows):
-    warm = [r for r in rows if r["run_type"] == "warm"]
-    prompt_order = list(dict.fromkeys(r["prompt_id"] for r in warm))  # keep file order
+    prompt_order = list(dict.fromkeys(r["prompt_id"] for r in of_type(rows, "warm")))
     lines = [
-        "| Prompt | Model | Input tokens | Output tokens | Warm TTFT (s) | Total (s) |",
-        "|---|---|---|---|---|---|",
+        "| Prompt | Model | Input tokens | Output tokens | Warm TTFT (s) | Cached TTFT (s) | Total (s) |",
+        "|---|---|---|---|---|---|---|",
     ]
-    groups = group_by(warm, "prompt_id", "model")
+    groups = group_by(rows, "prompt_id", "model")
     for prompt_id in prompt_order:
         for (pid, model), rs in sorted(groups.items()):
             if pid != prompt_id:
                 continue
+            warm, cached = of_type(rs, "warm"), of_type(rs, "cached")
             lines.append(
-                f"| {prompt_id} | {model} | {rs[0]['prompt_tokens']} "
-                f"| {median(r['output_tokens'] for r in rs):.0f} "
-                f"| {median(r['ttft_s'] for r in rs):.2f} "
-                f"| {median(r['total_s'] for r in rs):.2f} |"
+                f"| {prompt_id} | {model} | {warm[0]['prompt_tokens']} "
+                f"| {med([r['output_tokens'] for r in warm], '{:.0f}')} "
+                f"| {med([r['ttft_s'] for r in warm])} "
+                f"| {med([r['ttft_s'] for r in cached])} "
+                f"| {med([r['total_s'] for r in warm])} |"
             )
     return "\n".join(lines)
 
@@ -85,7 +100,7 @@ def main():
     report = (
         f"# Benchmark summary (run {run_id}, {len(rows)} runs)\n\n"
         f"## Per model\n\n{model_table(rows)}\n\n"
-        f"## Per prompt (warm runs, medians)\n\n{prompt_table(rows)}\n"
+        f"## Per prompt (medians)\n\n{prompt_table(rows)}\n"
     )
     SUMMARY_FILE.write_text(report)
     print(report)
