@@ -44,10 +44,16 @@ def of_type(rows, run_type):
     return [r for r in rows if r["run_type"] == run_type]
 
 
+def words_per_s(row):
+    # Each model splits text into tokens differently, so tokens/sec isn't a fair
+    # comparison between models. Words are the same for everyone.
+    return len(row["text"].split()) / row["eval_s"]
+
+
 def model_table(rows):
     lines = [
-        "| Model | Cold load (s) | Cold TTFT (s) | Warm TTFT (s) | Cached TTFT (s) | Tokens/sec | Memory (GB) |",
-        "|---|---|---|---|---|---|---|",
+        "| Model | Cold load (s) | Cold TTFT (s) | Warm TTFT (s) | Cached TTFT (s) | Tokens/sec | Words/sec | Memory (GB) |",
+        "|---|---|---|---|---|---|---|---|",
     ]
     for (model,), rs in sorted(group_by(rows, "model").items()):
         cold, warm, cached = of_type(rs, "cold"), of_type(rs, "warm"), of_type(rs, "cached")
@@ -58,10 +64,12 @@ def model_table(rows):
             f"| {med_worst([r['ttft_s'] for r in warm])} "
             f"| {med_worst([r['ttft_s'] for r in cached])} "
             f"| {med_worst([r['tokens_per_s'] for r in warm], lower_is_better=False)} "
+            f"| {med_worst([words_per_s(r) for r in warm], lower_is_better=False)} "
             f"| {max(r['memory_gb'] for r in rs):.2f} |"
         )
     lines.append(
-        "\nTimes and tokens/sec are shown as *median / worst*. "
+        "\nTimes and speeds are shown as *median / worst*. "
+        "Words/sec is the fairer cross-model speed, since each model counts tokens differently. "
         "Cold = model unloaded before the run. Warm = model in memory, new input each time "
         "(what a real new ticket costs). Cached = the exact same input repeated, so Ollama "
         "skips re-reading it."
