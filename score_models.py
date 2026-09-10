@@ -5,8 +5,8 @@ Reads the latest run in results/comparison.jsonl and reports:
 2. Priority mix-ups: what each model said vs what the key says. This shows
    HOW a model is wrong, e.g. calling everything urgent.
 3. Speed and memory, on warm runs only (the first ticket per model is cold).
-4. Hand scores for summary and action-item quality, once
-   results/hand_scores.json exists.
+4. Blind head-to-head picks for summary and action-item quality, once
+   results/hand_scores.json exists (see hand_scoring.py).
 5. Every mistake, so each number can be checked against the actual answers.
 
 Run:  .venv/bin/python score_models.py                 (latest run)
@@ -80,17 +80,22 @@ def speed_table(by_model):
     return "\n".join(lines)
 
 
-def hand_score_table():
+def hand_score_table(run_id, models):
+    """Blind head-to-head picks: how often each model's answer was judged better."""
     if not HAND_SCORES_FILE.exists():
-        return "_Not scored yet._"
-    scores = json.loads(HAND_SCORES_FILE.read_text())
-    by_model = defaultdict(list)
-    for s in scores:
-        by_model[s["model"]].append(s)
-    lines = ["| Model | Tickets scored | Summary (1-3) | Action items (1-3) |", "|---|---|---|---|"]
-    for model, ss in sorted(by_model.items()):
-        lines.append(f"| {model} | {len(ss)} | {mean(s['summary'] for s in ss):.2f} "
-                     f"| {mean(s['action_items'] for s in ss):.2f} |")
+        return "_Not judged yet._"
+    scores = [s for s in json.loads(HAND_SCORES_FILE.read_text()) if s["run_id"] == run_id]
+    if not scores:
+        return "_Not judged yet._"
+    n = len(scores)
+    lines = [f"{n} tickets judged blind (answers shown as A/B in random order).\n",
+             "| | Better summary | Better action items |", "|---|---|---|"]
+    for who in list(models) + ["tie"]:
+        lines.append(f"| {who} | {sum(s['summary'] == who for s in scores)}/{n} "
+                     f"| {sum(s['action_items'] == who for s in scores)}/{n} |")
+    lines += ["", "| Ticket | Better summary | Better action items | Judge's reason |", "|---|---|---|---|"]
+    for s in sorted(scores, key=lambda s: s["ticket_id"]):
+        lines.append(f"| {s['ticket_id']} | {s['summary']} | {s['action_items']} | {s['reason']} |")
     return "\n".join(lines)
 
 
@@ -125,7 +130,7 @@ def main():
         f"## Priority mix-ups\n\n"
         + "\n\n".join(priority_mixups(m, rs) for m, rs in by_model.items()) + "\n\n"
         f"## Speed and memory (warm tickets)\n\n{speed_table(by_model)}\n\n"
-        f"## Hand scores (blind)\n\n{hand_score_table()}\n\n"
+        f"## Blind head-to-head judging\n\n{hand_score_table(run_id, by_model)}\n\n"
         f"## Every mistake\n\n{mistakes_list(by_model)}\n"
     )
     SUMMARY_FILE.write_text(report)

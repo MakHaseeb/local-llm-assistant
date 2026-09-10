@@ -416,17 +416,23 @@ quality, speed, and memory.
   sentiment are checked against the reviewed answer key, along with how many
   answers were valid or needed a retry. A priority mix-up table shows *how*
   each model is wrong, not just how often.
-- **Blind hand scoring where there isn't.** Summary and action-item quality
-  are scored 1-3 on 10 tickets, using a fixed rubric. Each ticket's two
-  answers are shown as "A" and "B" in random order, so the scorer can't
-  favour a model by name. Writing style can still give a model away: this
-  hides the name, not the voice.
+- **Blind head-to-head judging where there isn't.** On 10 tickets, the two
+  models' answers are shown side by side as "A" and "B", in random order,
+  so the judge can't favour a model by name. For each ticket the judge
+  picks the better **summary** and the better **action items**, or calls a
+  tie, with a short reason. Writing style can still give a model away:
+  blinding hides the name, not the voice.
 
-| Score | Summary | Action items |
-|---|---|---|
-| 3 | Accurate and complete: the main issue and the key details, nothing made up | The right steps, specific, nothing the customer already tried, nothing made up |
-| 2 | Misses a key detail, or adds something not in the ticket | Misses an important step, or includes a vague or unnecessary one |
-| 1 | Wrong, misleading, or misses the main issue | Misses the main action, or suggests something wrong or unhelpful |
+  "Better" means: a summary that is accurate and complete, with nothing
+  made up; action items that are the right steps, specific, and don't
+  repeat what the customer already tried.
+
+  *Method change:* the plan was to score every answer 1-3. In the first
+  batch, the judge's reasoning came out as "I prefer this one, because...",
+  and comparing two answers tends to be more consistent than absolute
+  scoring, so the method switched before any scores were recorded. The
+  trade-off: head-to-head shows which model wins, not whether either
+  answer is good enough to send.
 
 ### Results
 

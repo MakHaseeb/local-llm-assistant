@@ -1,14 +1,14 @@
-"""Phase 3: blind hand-scoring of summary and action-item quality.
+"""Phase 3: blind head-to-head judging of summaries and action items.
 
 For each chosen ticket, both models' answers are shown as "Answer A" and
-"Answer B" in a random order, so the scorer can't favour a model by name.
-The order is saved in results/hand_scoring_key.json and only used when
-recording scores.
+"Answer B" in a random order, so the judge can't favour a model by name.
+The judge picks the better summary and the better action items (A, B or tie).
+The A/B order is saved in results/hand_scoring_key.json and only used when
+recording picks.
 
-Run:  .venv/bin/python hand_scoring.py show 1                  (print batch 1 of 3)
-      .venv/bin/python hand_scoring.py record t01 3 2 2 3      (A summary, A actions,
-                                                                B summary, B actions)
-      .venv/bin/python hand_scoring.py reveal                  (who was A and B)
+Run:  .venv/bin/python hand_scoring.py show 1                          (print batch 1 of 3)
+      .venv/bin/python hand_scoring.py record t01 A tie "reason..."    (summary pick, action pick)
+      .venv/bin/python hand_scoring.py reveal                          (who was A and B)
 """
 import argparse
 import json
@@ -22,13 +22,9 @@ SCORES_FILE = Path("results/hand_scores.json")
 
 BATCHES = [["t01", "t05", "t09"], ["t12", "t17", "t21"], ["t26", "t28", "t35", "t39"]]
 
-RUBRIC = """Score each answer 1-3:
-  Summary       3 = accurate and complete: the main issue and the key details, nothing made up
-                2 = mostly right, but misses a key detail or adds something not in the ticket
-                1 = wrong, misleading, or misses the main issue
-  Action items  3 = the right steps, specific, nothing the customer already tried, nothing made up
-                2 = useful, but misses an important step or includes a vague or unnecessary one
-                1 = misses the main action, or suggests something wrong or unhelpful"""
+GUIDE = """For each ticket, pick the better SUMMARY and the better ACTION ITEMS: A, B, or tie.
+  Better summary:      accurate and complete - the main issue and key details, nothing made up
+  Better action items: the right steps, specific, nothing the customer already tried, nothing made up"""
 
 
 def latest_answers():
@@ -63,7 +59,7 @@ def show(batch_no):
     run_id, answers = latest_answers()
     key = load_key(run_id, answers)
     tickets = {t["id"]: t["ticket"] for t in json.loads(TICKETS_FILE.read_text())}
-    print(RUBRIC)
+    print(GUIDE)
     for tid in BATCHES[batch_no - 1]:
         print(f"\n{'=' * 70}\n{tid}: {tickets[tid]}\n")
         for letter in ("A", "B"):
@@ -76,19 +72,26 @@ def show(batch_no):
             print()
 
 
-def record(tid, a_summary, a_actions, b_summary, b_actions):
+def record(tid, summary_pick, actions_pick, reason):
     run_id, answers = latest_answers()
     key = load_key(run_id, answers)
+    order = key["order"][tid]
+
+    def winner(pick):
+        pick = pick.upper()
+        if pick == "TIE":
+            return "tie"
+        if pick not in ("A", "B"):
+            raise SystemExit("Each pick must be A, B or tie.")
+        return order[pick]
+
     scores = json.loads(SCORES_FILE.read_text()) if SCORES_FILE.exists() else []
-    scores = [s for s in scores if not (s["run_id"] == run_id and s["ticket_id"] == tid)]  # re-score replaces
-    for letter, summary, actions in (("A", a_summary, a_actions), ("B", b_summary, b_actions)):
-        if not all(v in (1, 2, 3) for v in (summary, actions)):
-            raise SystemExit("Scores must be 1, 2 or 3.")
-        scores.append({"run_id": run_id, "ticket_id": tid, "model": key["order"][tid][letter],
-                       "summary": summary, "action_items": actions})
+    scores = [s for s in scores if not (s["run_id"] == run_id and s["ticket_id"] == tid)]  # re-judging replaces
+    scores.append({"run_id": run_id, "ticket_id": tid, "summary": winner(summary_pick),
+                   "action_items": winner(actions_pick), "reason": reason})
     SCORES_FILE.write_text(json.dumps(scores, indent=2))
     done = len({s["ticket_id"] for s in scores if s["run_id"] == run_id})
-    print(f"Recorded {tid}. {done}/{len(sum(BATCHES, []))} tickets scored.")
+    print(f"Recorded {tid}. {done}/{len(sum(BATCHES, []))} tickets judged.")
 
 
 def reveal():
@@ -104,14 +107,16 @@ def main():
     s.add_argument("batch", type=int, choices=range(1, len(BATCHES) + 1))
     r = sub.add_parser("record")
     r.add_argument("ticket_id")
-    r.add_argument("scores", type=int, nargs=4, help="A summary, A actions, B summary, B actions")
+    r.add_argument("summary_pick", help="A, B or tie")
+    r.add_argument("actions_pick", help="A, B or tie")
+    r.add_argument("reason", nargs="?", default="")
     sub.add_parser("reveal")
     args = parser.parse_args()
 
     if args.command == "show":
         show(args.batch)
     elif args.command == "record":
-        record(args.ticket_id, *args.scores)
+        record(args.ticket_id, args.summary_pick, args.actions_pick, args.reason)
     else:
         reveal()
 
