@@ -24,6 +24,11 @@ from schemas import TicketTriage
 
 MAX_ATTEMPTS = 2  # the first try + one retry
 
+# Pydantic's message for unreadable JSON ("expected value at line 1 column 1")
+# is written for programmers. A model needs to be told what to change.
+JSON_HINT = ("Your reply could not be read as JSON. Reply with the JSON object only: "
+             "start with { and end with }, with no ``` marks and no text before or after it.")
+
 
 @dataclass
 class TriageOutcome:
@@ -41,6 +46,8 @@ def describe_errors(e: ValidationError) -> str:
     for err in e.errors():
         where = ".".join(str(part) for part in err["loc"]) or "(whole reply)"
         lines.append(f"- {where}: {err['msg']}")
+    if any(err["type"] == "json_invalid" for err in e.errors()):
+        lines.append(f"- hint: {JSON_HINT}")
     return "\n".join(lines)
 
 

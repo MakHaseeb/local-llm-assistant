@@ -49,6 +49,19 @@ class TriageRetryTests(unittest.TestCase):
         self.assertIn(BAD_CATEGORY, retry_prompt)  # the model is shown its own reply...
         self.assertIn("category", retry_prompt)    # ...and which field was wrong
 
+    def test_unreadable_json_gets_a_plain_english_hint(self):
+        with fake_replies(NOT_JSON, GOOD) as fake:
+            out = triage.triage("ticket text")
+        self.assertTrue(out.ok)
+        retry_prompt = fake.call_args_list[1].args[1]
+        self.assertIn(triage.JSON_HINT, retry_prompt)
+
+    def test_field_errors_do_not_get_the_json_hint(self):
+        with fake_replies(BAD_CATEGORY, GOOD) as fake:
+            triage.triage("ticket text")
+        retry_prompt = fake.call_args_list[1].args[1]
+        self.assertNotIn(triage.JSON_HINT, retry_prompt)  # its own message is already clear
+
     def test_two_bad_replies_fail_gracefully(self):
         with fake_replies(NOT_JSON, BAD_CATEGORY) as fake:
             out = triage.triage("ticket text")
